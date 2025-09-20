@@ -1,247 +1,347 @@
-# docker compose yaml for airflow sandbox
-# celeryexecutor
-# postgres meta db 
-# redis distributor
-# data sources: minio, sql server, extra postgres (simulating snowflake)
 
-version: "3.9" 
+# docker-compose.yml — airflow sandbox with celery, postgres metadata, redis,
+# minio "file drop", sql server, and an extra postgres (to simulate another source/target).
+version: "3.9"
 
-# -----------------------
-# Airflow Environment
-# -----------------------
+# -------------------------------------------------------------
+# airflow environment (yaml anchor to reuse across services)
+# -------------------------------------------------------------
 
-# defining a yaml anchor so we can reference it from other containers
-x-airflow-env: &airflow-env 
-  # core settings for airflow
-  AIRFLOW_CORE_EXECUTOR: CeleryExecutor
-  AIRFLOW_CORE_LOAD_EXAMPLES: "False"     # dont load default airflow exmaples...keep 'er clean
-  AIRFLOW_CORE_FERNET_KEY: "${AIRFLOW_FERNET_KEY}"    # MASTER KEY FOR CONNECTIONS (set in .env)
-  AIRFLOW_CORE_DAGS_ARE_PAUSED_AT_CREATION: "True"    # NEW dags start paused duh
-  AIRFLOW_CORE_DAGS_FOLDER: /opt/airflow/dags         # mounting location for dags
-  AIRFLOW_DATABASE_SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow@postgres:5432/airflow  # metadata db 
+x-airflow-env: &airflow-env
+  # core airflow settings (double underscores are required)
+  airflow__core__executor: celeryexecutor
+  airflow__core__load_examples: "false"                       # keep ui clean
+  airflow__core__fernet_key: "${airflow_fernet_key}"          # set in .env
+  airflow__core__dags_are_paused_at_creation: "true"
+  airflow__core__dags_folder: /opt/airflow/dags
+  airflow__database__sql_alchemy_conn: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
 
-  # celery -> distributed executor
-  AIRFLOW_CELERY_BROKER_URL: redit://redis:6379/0     # celery broker via redis
-  AIRFLOW_CELERY_RESULT_BACKEND: db+postgresql://airflow:airflow@postgres:5432/airflow    # celery stores results in the same postgres metadata db
+  # celery (distributed execution)
+  airflow__celery__broker_url: redis://redis:6379/0
+  airflow__celery__result_backend: db+postgresql://airflow:airflow@postgres:5432/airflow
 
-  # webserver and logging 
-  AIRFLOW_WEBSERVER_EXPOSE_CONFIG: "True"             # user can see config in web ui 
-  AIRFLOW_LOGGING_LOGGING_LEVEL: INFO                 # normal log level
+  # webserver / logging
+  airflow__webserver__expose_config: "true"
+  airflow__logging__logging_level: info
 
-  _PIP_ADDITIONAL_REQUIREMENTS: >
+  # system logging with statsd
+  airflow__metrics__statsd_on: "true"
+  airflow__metrics_statsd_host: "statsd-exporter"
+  airflow__metrics__statsd_port: "9125"
+  airflow__metrics__statsd_prefix: airflow
+
+  # dev convenience: install providers at container start (for a stable setup, bake a custom image)
+  _pip_additional_requirements: >
     apache-airflow-providers-amazon
     apache-airflow-providers-microsoft-mssql
     apache-airflow-providers-snowflake
 
 services:
-  # ---------------------
-  # aiflow metadata db
-  # ---------------------
-
+  # -----------------------
+  # airflow metadata db (postgres)
+  # -----------------------
   postgres:
     image: postgres:16
     container_name: af_postgres
     environment:
-      POSTGRES_USER: airflow      # db user
-      POSTGRES_PASSWORD: airflow
-      POSTGRES_DB: airflow        # db's name is airflow
+      postgres_user: airflow
+      postgres_password: airflow
+      postgres_db: airflow
     volumes:
-      - pg_data:/var/lib/postgresql/data      # PERSIST METADATA ACROSS RESTARTS!
+      - pg_data:/var/lib/postgresql/data
     healthcheck:
-      # quick health check for making sure everything boots up in order
-      test: ["CMD-SHELL", "pg_isready -u airflow"]
+      test: ["cmd-shell", "pg_isready -u airflow"]
       interval: 10s
-      timout: 5s
-      retries: 3
+      timeout: 5s
+      retries: 5
 
-  # ---------------
-  # Celery broker
-  # ---------------
-
+  # -----------------------
+  # celery broker (redis)
+  # -----------------------
   redis:
     image: redis:7
     container_name: af_redis
 
   # ----------------------------------------------
-  # airflow db init (first time) + admin creation
+  # one-time airflow db init + admin user creation
   # ----------------------------------------------
-
   airflow-init:
     image: apache/airflow:2.9.3
     container_name: af_init
     depends_on:
       postgres:
-        condition: service_healthy    # wait until metadatadb is up 
+        condition: service_healthy
       redis:
-        condition: service_started    # wait until celery distributor is up
-      environment:
-        <<: *airflow-env
-        AIRFLOW_ADMIN_USER: "${AIRFLOW_ADMIN_USER:-admin}"            # pull this stuff from .env or default to admin (-admin does that)
-        AIRFLOW_ADMIN_PASSWORD: "${AIRFLOW_ADMIN_PASSWORD:-admin}" 
-      entrypoint:
-        - bash
-        - -lc
-        - | 
-          set -e
-          airflow db upgrade
-          airflow users create \
-            --role Admin \
-            -- username "$AIRFLOW_ADMIN_USER" \
-            -- password "$AIRFLOW_ADMIN_PASSWORD" \
-            -- firstname Admin --lastname User \
-            -- email admin@example.com || true \
-          echo "[AIRFLOW] DB READY; ADMIN USER ENSURED"
+        condition: service_started
+    environment:
+      <<: *airflow-env
+      airflow_admin_user: "${airflow_admin_user:-admin}"
+      airflow_admin_password: "${airflow_admin_password:-admin}"
+    entrypoint:
+      - bash
+      - -lc
+      - |
+        set -e
+        airflow db upgrade
+        airflow users create \
+          --role admin \
+          --username "$airflow_admin_user" \
+          --password "$airflow_admin_password" \
+          --firstname admin --lastname user \
+          --email admin@example.com || true
+        echo "[airflow] db ready; admin user ensured"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
 
-      volumnes:
-        - ./dags:/opt/airflow/dags
-        - ./logs:/opt/airflow/logs
-        - ./plugins:/opt/airflow/plugins
+  # -------------------
+  # airflow webserver
+  # -------------------
+  airflow-webserver:
+    image: apache/airflow:2.9.3
+    container_name: af_web
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    environment: *airflow-env
+    command: webserver
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+
+  # -----------------------------------------------------
+  # airflow scheduler (parses dags & schedules tasks)
+  # -----------------------------------------------------
+  airflow-scheduler:
+    image: apache/airflow:2.9.3
+    container_name: af_sched
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    environment: *airflow-env
+    command: scheduler
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+
+  # -----------------------------------------------------
+  # airflow triggerer (for deferrable operators/sensors)
+  # -----------------------------------------------------
+  airflow-triggerer:
+    image: apache/airflow:2.9.3
+    container_name: af_trigger
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    environment: *airflow-env
+    command: triggerer
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+
+  # ------------------------------------------------
+  # airflow celery worker (executes tasks)
+  # ------------------------------------------------
+  airflow-worker:
+    image: apache/airflow:2.9.3
+    container_name: af_worker
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    environment:
+      <<: *airflow-env
+      # global concurrency knobs (tune for your box/workload)
+      airflow__core__parallelism: "8"           # max tasks across the cluster
+      airflow__core__dag_concurrency: "16"      # max running tasks per dag
+      airflow__celery__worker_concurrency: "4"  # processes per worker container
+    command: celery worker
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+
+  # --------------------------------------------------
+  # minio (s3-compatible object store for "file drops")
+  # --------------------------------------------------
+  minio:
+    image: minio/minio:latest
+    container_name: af_minio
+    environment:
+      minio_access_key: ${minio_access_key:-minio}
+      minio_secret_key: ${minio_secret_key:-minio123}
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"   # s3 api
+      - "9001:9001"   # minio web console
+    volumes:
+      - minio_data:/data
+
+  # one-shot helper to create a 'drop' bucket after minio starts
+  mc:
+    image: minio/mc:latest
+    container_name: af_minio_mc
+    depends_on:
+      minio:
+        condition: service_started
+    entrypoint: >
+      sh -c "
+      /usr/bin/mc alias set local http://minio:9000 ${minio_access_key:-minio} ${minio_secret_key:-minio123} &&
+      /usr/bin/mc mb --ignore-existing local/drop &&
+      /usr/bin/mc anonymous set public local/drop &&
+      echo '[minio] drop bucket ready'
+      "
+
+  # ----------------------------------------
+  # microsoft sql server (developer)
+  # ----------------------------------------
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: af_mssql
+    environment:
+      accept_eula: "y"
+      sa_password: "${mssql_sa_password:-bababababad!}"  # set in .env
+      mssql_pid: "developer"
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql_data:/var/opt/mssql
+
+  # ------------------
+  # extra postgres db
+  # ------------------
+  # simulating an additional data source like snowflake (using postgres) 
+  pg_imdb:
+    image: postgres:16
+    container_name: af_pg_imdb
+    environment:
+      postgres_user: demo
+      postgres_password: demo
+      postgres_db: demo
+    ports:
+      - "5433:5432"     # avoid clashing with metadata postgres
+    volumes:
+      - pg_other_data:/var/lib/postgresql/data
 
 
-    # -------------------
-    # ariflow webserver
-    # -------------------
-    
-    airflow-webserver:
-      image: apache/airflow:2.9.3
-      container_name: af_web
-      depends_on:
-        airflow-init:
-          condition: service_completed_successfully     # start when airflow initialized
-        environment: *airflow-env
-        command: webserver 
-        ports: 
-          - "8080:8080"
-        volumes:
-          - ./dags:/opt/airflow/dags        # mount dags from host
-          - ./logs:/opt/airflow/logs        # persist logs
-          - ./plugins:/opt/airflow/plugins  # direectory to store providers and other plugins
+  # ----------------------
+  # system monitoring
+  # ---------------------
 
-    # -----------------------------------------------------
-    # airflow scheduler (parsing dags + scheduling tasks)
-    # -----------------------------------------------------
-    
-    airflow-scheduler:
-      image: apache/airflow:2.9.3
-      container_name: af_sched
-      depends_on:
-        airflow-init:
-          condition: service_completed_successfully
-        environment: *airflow-env         # pull from airflow env above
-        command: scheduler
-        depends_on:
-          aiflow-init:
-            condition: service_completed_successfully 
-          environment: *airflow-env 
-          command: scheduler
-        volumes:
-            - ./dags:/opt/airflow/dags        # mount dags from host
-            - ./logs:/opt/airflow/logs        # persist logs
-            - ./plugins:/opt/airflow/plugins  # direectory to store providers and other plugins
+  # -----------------------
+  # statsd -> prometheus bridge for airflow metrics
+  # -----------------------
+  statsd-exporter:
+    image: prom/statsd-exporter:latest
+    container_name: mon_statsd_exporter
+    command: --log.level=info
+    # listens on 9125/udp for statsd, exposes prometheus metrics on 9102
+    ports:
+      - "9102:9102"
+      - "9125:9125/udp"
 
-    # -----------------------------------------------------
-    # airflow triggerer (for deferable operators/sensors) 
-    # -----------------------------------------------------
+  # -----------------------
+  # cadvisor (container cpu/ram/io)
+  # -----------------------
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: mon_cadvisor
+    # port 8080 inside; map to 8082 on host so it doesn't clash with airflow
+    ports:
+      - "8082:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    privileged: true
 
-    airflow-triggerer:
-      image: apache/airflow:2.9.3
-      container_name: af_trigger
-      depends_on:
-        aiflow-init:
-          condition: service_completed_succesfully
+  # -----------------------
+  # postgres exporters (airflow meta + extra pg)
+  # -----------------------
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: mon_pg_exporter_meta
+    environment:
+      # airflow metadata db
+      data_source_name: postgresql://airflow:airflow@postgres:5432/airflow?sslmode=disable
+    # prom metrics on 9187
+    expose: ["9187"]
+    depends_on:
+      postgres:
+        condition: service_healthy
 
-    # ------------------------------------------------
-    # airflow celery worker (actually executes tasks)
-    # ------------------------------------------------
-
-    airflow-worker:
-      image: apache/airflow:2.9.3
-      container_name: af_worker
-      depends_on:
-        aiflow-init:
-          condition: service_completed_successfully
-      environment:
-        <<: *airflow-env
-        # set global concurrency params 
-        AIRFLOW_CORE_PARALLELISM: "8"           # max tasks across cluster
-        AIRFLOW_CORE_DAG_CONCURRENCY: "16"      # max active tasks/dag
-        AIRFLOW_CELERY_WORKER_CONCURRENCY: "4"  # max processes running per worker container
-      command: celery worker
-      volumes:
-        - ./dags:/opt/airflow/dags        # mount dags from host
-        - ./logs:/opt/airflow/logs        # persist logs
-        - ./plugins:/opt/airflow/plugins  # direectory to store providers and other plugins
- 
-    # --------------------------------------------------
-    # MinIO (S3- object store for file drops) 
-    # --------------------------------------------------
-    
-    minion:
-      image: minio/minio:latest
-      container_name: af_minio
-      environment:
-        MINION_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minio}     # set dev credentials (set in .env)
-        MINIIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minio123}
-      command: server /data --console-address ":9001"     # set s3 port on :9000; admin console :9001
-      ports:
-        - "9000:9000"   # s3 api endpoint (used in airflow s3 connections via endpooint_url)
-        - "9001:9001"   # minion admin console port
-      volumes:
-        - minio_data:/data      # persist files 
-
-    # one shot to create a drop bucket; will run after minion launches
-    mc:
-      image: minion/mc:latest
-      container_name: af_minio_mc
-      depends_on:
-        minio:
-          condition: service_started
-      entrypoint: >
-        sh -c "
-        /usr/bin/mc alias set local http://minion:9000 ${MINIO_ACCESS_KEY:-minio} ${MINIO_SECRET_KEY:-minio123} &&
-        /usr/bin/mc mb --ignore-existing local/drop &&
-        /usr/bin/mc anonymous set public local/drop &&
-        echo '[MinIO] drop bucket ready'
-        "
-
-    # ----------------------------------------
-    # sql server (rip RAM but we gotta do it)
-    # ----------------------------------------
-   
-    mssql:
-      image: mcr.microsoft.com/mssql/server:2022-latest
-      container_name: af_mssql
-      environment:
-        ACCEPT_EULA: "Y"  # ofc ms needs this 
-        SA_PASSWORD: "${MSSQL_SA_PASSWORD:-mssqlpassword}"  # gotta set a strong password in .env file cuz ms
-        MSSQL_PID: "Developer"                              
-      ports:
-        - "1433:1433"
-      volumes:
-        - mssql_data:/var/opt/mssql                         # persist db 
-
-      # ------------------
-      # additional pg db
-      # ------------------
-
+  pg-imbdb-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: mon_pg_exporter_imbdb
+    environment:
+      # extra postgres log for imdb simulation
+      data_source_name: postgresql://demo:demo@pg_other:5432/demo?sslmode=disable
+    expose: ["9187"]
+    depends_on:
       pg_other:
-        image: postgres:16
-        container_name: af_pg_other:
-        environment:
-          POSTGRES_USER: demo
-          POSTGRES_PASSWORD: demo
-          POSTGRES_DB: demo
-        ports:
-          - "5433:5432"                                       # avoid clashing with 5433
-        volumes:
-          - pg_other_data:/var/lib/postgresql/data
+        condition: service_started
 
-      # -------------------------
-      # PERSISTENT NAMED VOLUMES
-      # -------------------------
-      # volumes for containers to mount to?
-      volumes:
-        pg_data: 
-        pg_other_data:
-        minio_data:
-        mssql_data: 
+  # -----------------------
+  # redis exporter (celery broker)
+  # -----------------------
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: mon_redis_exporter
+    environment:
+      redis_addr: redis://redis:6379
+    expose: ["9121"]
+
+  # -----------------------
+  # prometheus (scrapes all exporters)
+  # -----------------------
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: mon_prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - statsd-exporter
+      - cadvisor
+      - postgres-exporter
+      - pg-other-exporter
+      - redis-exporter
+
+  # -----------------------
+  # grafana (dashboards)
+  # -----------------------
+  grafana:
+    image: grafana/grafana:latest
+    container_name: mon_grafana
+    environment:
+      gf_security_admin_password: "${grafana_admin_password:-admin}"
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+# -------------------------
+# persistent named volumes
+# -------------------------
+volumes:
+  pg_data:
+  pg_other_data:
+  minio_data:
+  mssql_data:
+  prometheus_data:
+  grafana_data:
+
