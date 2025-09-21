@@ -5,8 +5,6 @@ version: "3.9"
 # airflow environment (yaml anchor to reuse across services)
 # -------------------------------------------------------------
 
-
-
 x-airflow-env: &airflow-env
   AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
   AIRFLOW__CORE__EXECUTOR: CeleryExecutor
@@ -203,8 +201,8 @@ services:
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: af_mssql
     environment:
-      accept_eula: "y"
-      sa_password: "${MSSQL__SA__PASSWORD:-bababababad!}"  # set in .env
+      ACCEPT_EULA: "y"
+      sa_password: "${MSSQL_SA_PASSWORD:-bababababad!}"  # set in .env
       mssql_pid: "developer"
     ports:
       - "1433:1433"
