@@ -11,7 +11,7 @@ x-airflow-env: &airflow-env
   # core airflow settings (double underscores are required)
   airflow__core__executor: celeryexecutor
   airflow__core__load_examples: "false"                       # keep ui clean
-  airflow__core__fernet_key: "${airflow_fernet_key}"          # set in .env
+  airflow__core__fernet_key: "${AIRFLOW__FERNET__KEY}"          # set in .env
   airflow__core__dags_are_paused_at_creation: "true"
   airflow__core__dags_folder: /opt/airflow/dags
   airflow__database__sql_alchemy_conn: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
@@ -44,13 +44,13 @@ services:
     image: postgres:16
     container_name: af_postgres
     environment:
-      postgres_user: airflow
+      postgres_user: airflow/
       postgres_password: airflow
       postgres_db: airflow
     volumes:
       - pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["cmd-shell", "pg_isready -u airflow"]
+      test: ["CMD-SHELL", "pg_isready -u airflow"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -75,8 +75,11 @@ services:
         condition: service_started
     environment:
       <<: *airflow-env
-      airflow_admin_user: "${airflow_admin_user:-admin}"
-      airflow_admin_password: "${airflow_admin_password:-admin}"
+      AIRFLOW_ADMIN_USER: "${AIRFLOW_ADMIN_USER:-admin}"
+      AIRFLOW_ADMIN_PASSWORD: "${AIRFLOW_ADMIN_PASSWORD:-admin}"
+      
+      # setting airflow perms to match what we set on thisstem 
+      AIRFLOW_UID: "50000":
     entrypoint:
       - bash
       - -lc
@@ -84,9 +87,9 @@ services:
         set -e
         airflow db upgrade
         airflow users create \
-          --role admin \
-          --username "$airflow_admin_user" \
-          --password "$airflow_admin_password" \
+          --role Admin \
+          --username "$AIRFLOW_ADMIN_USER" \
+          --password "$AIRFLOW_ADMIN_PASSWORD" \
           --firstname admin --lastname user \
           --email admin@example.com || true
         echo "[airflow] db ready; admin user ensured"
@@ -173,8 +176,8 @@ services:
     image: minio/minio:latest
     container_name: af_minio
     environment:
-      minio_access_key: ${minio_access_key:-minio}
-      minio_secret_key: ${minio_secret_key:-minio123}
+      minio_access_key: "${MINION__ACESSS__KEY:-minio}"
+      minio_secret_key: "${MINIO__SECRET__KEY:-minio123}"
     command: server /data --console-address ":9001"
     ports:
       - "9000:9000"   # s3 api
@@ -205,7 +208,7 @@ services:
     container_name: af_mssql
     environment:
       accept_eula: "y"
-      sa_password: "${mssql_sa_password:-bababababad!}"  # set in .env
+      sa_password: "${MSSQL__SA__PASSWORD:-bababababad!}"  # set in .env
       mssql_pid: "developer"
     ports:
       - "1433:1433"
@@ -231,7 +234,7 @@ services:
 
   # ----------------------
   # system monitoring
-  # ---------------------
+  # ----------------------
 
   # -----------------------
   # statsd -> prometheus bridge for airflow metrics
@@ -270,23 +273,34 @@ services:
     container_name: mon_pg_exporter_meta
     environment:
       # airflow metadata db
-      data_source_name: postgresql://airflow:airflow@postgres:5432/airflow?sslmode=disable
+      DATA_SOURCE_NAME: postgresql://airflow:airflow@postgres:5432/airflow?sslmode=disable
     # prom metrics on 9187
     expose: ["9187"]
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", " wget -qO- http://localhost:9187/metrics | head -n1 || exit 1"]
+      interval: 10s
+      timeout: 4s
+      retries: 6
 
-  pg-imbdb-exporter:
+  pg-imdb-exporter:
     image: prometheuscommunity/postgres-exporter:latest
     container_name: mon_pg_exporter_imbdb
     environment:
       # extra postgres log for imdb simulation
-      data_source_name: postgresql://demo:demo@pg_other:5432/demo?sslmode=disable
+      DATA_SOURCE_NAME: postgresql://demo:demo@af_pg_other:5432/demo?sslmode=disable
     expose: ["9187"]
     depends_on:
-      pg_other:
+      pg_imdb:
         condition: service_started
+
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9187/metrics | head -n1 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
 
   # -----------------------
   # redis exporter (celery broker)
@@ -316,7 +330,7 @@ services:
       - statsd-exporter
       - cadvisor
       - postgres-exporter
-      - pg-other-exporter
+      - pg-imdb-exporter
       - redis-exporter
 
   # -----------------------
