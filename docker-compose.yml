@@ -5,28 +5,26 @@ version: "3.9"
 # airflow environment (yaml anchor to reuse across services)
 # -------------------------------------------------------------
 
-x-airflow-env: &airflow-env
-  # core airflow settings (double underscores are required)
-  airflow__core__executor: celeryexecutor
-  airflow__core__load_examples: "false"                       # keep ui clean
-  airflow__core__fernet_key: "${AIRFLOW__FERNET__KEY}"          # set in .env
-  airflow__core__dags_are_paused_at_creation: "true"
-  airflow__core__dags_folder: /opt/airflow/dags
-  airflow__database__sql_alchemy_conn: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
 
-  # celery (distributed execution)
-  airflow__celery__broker_url: redis://redis:6379/0
-  airflow__celery__result_backend: db+postgresql://airflow:airflow@postgres:5432/airflow
 
-  # webserver / logging
-  airflow__webserver__expose_config: "true"
-  airflow__logging__logging_level: info
+sairflow-env: &airflow-env
+  AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+  AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+  AIRFLOW__CORE__FERNET_KEY: "${AIRFLOW_FERNET_KEY}"
+  AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+  AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "True"
+  AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+  AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
+  AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres:5432/airflow
+  AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "True"
+  AIRFLOW__LOGGING__LOGGING_LEVEL: INFO
+
 
   # system logging with statsd
-  airflow__metrics__statsd_on: "true"
-  airflow__metrics_statsd_host: "statsd-exporter"
-  airflow__metrics__statsd_port: "9125"
-  airflow__metrics__statsd_prefix: airflow
+  AIRFLOW__METRICS__STATSD: "true"
+  AIRFLOW__METRICS__STATSD_HOST: "statsd-exporter"
+  AIRFLOW__METRICS__STATSD_PORT: "9125"
+  AIRFLOW__METRICS__STATSD_PREFIX: airflow
 
   # dev convenience: install providers at container start (for a stable setup, bake a custom image)
   _pip_additional_requirements: >
