@@ -1,4 +1,3 @@
-# minio "file drop", sql server, and an extra postgres (to simulate another source/target).
 version: "3.9"
 
 # -------------------------------------------------------------
@@ -25,10 +24,15 @@ x-airflow-env: &airflow-env
   AIRFLOW__METRICS__STATSD_PREFIX: airflow
 
   # dev convenience: install providers at container start (for a stable setup, bake a custom image)
+  # airflow-code-editor -> edit dags in web ui directly
   _pip_additional_requirements: >
     apache-airflow-providers-amazon
     apache-airflow-providers-microsoft-mssql
     apache-airflow-providers-snowflake
+    airflow-code-editor==8.1.0
+    fs-s3fs
+    black
+    isort
 
 services:
   # -----------------------
