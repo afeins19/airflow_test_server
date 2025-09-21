@@ -18,11 +18,12 @@ x-airflow-env: &airflow-env
   
   # web-wui code editor + file manager
   AIRFLOW__CODE_EDITOR__ENABLED: "True"
-  AIRFLOW__CODE_EDITOR__ROOT_DIRECTORY: /opt/airflow/dags
+  AIRFLOW__CODE_EDITOR__ROOT_DIRECTORY: /opt/airflow/
   AIRFLOW__CODE_EDITOR__GIT_ENABLED: "False" # CHANGE TO TRUE ONCE GIT REPO SETUP FOR DAGS
   AIRFLOW__CODE_EDITOR__MOUNT: "name=logs,path=/opt/airflow/logs"
-  AIRFLOW__CODE_EDITOR__MOUNT1: "name=plugins,path=/opt/airflow/plugins"
-  AIRFLOW__CODE_EDITOR__MOUNT2: "name=drop,path=s3://drop"
+  AIRFLOW__CODE_EDITOR__MOUNT1: "name=dags,path=/opt/airflow/dags"
+  AIRFLOW__CODE_EDITOR__MOUNT2: "name=plugins,path=/opt/airflow/plugins"
+  AIRFLOW__CODE_EDITOR__MOUNT3: "name=drop,path=s3://drop"
 
   AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minio}
   AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minio123}
