@@ -79,7 +79,7 @@ services:
       AIRFLOW_ADMIN_PASSWORD: "${AIRFLOW_ADMIN_PASSWORD:-admin}"
       
       # setting airflow perms to match what we set on thisstem 
-      AIRFLOW_UID: "50000":
+      AIRFLOW_UID: "50000"
     entrypoint:
       - bash
       - -lc
