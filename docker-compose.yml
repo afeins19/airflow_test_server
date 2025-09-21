@@ -103,6 +103,7 @@ services:
         condition: service_completed_successfully
     env_file: [./.env]         # inject from anchor
     environment: *airflow-env
+    command: ["airflow", "webserver", "--port", "8080"] # explicit startup command for module
     ports:
       - "8080:8080"
     volumes:
@@ -121,7 +122,7 @@ services:
         condition: service_completed_successfully
     env_file: [./.env]         # inject from anchor
     environment: *airflow-env
-    command: scheduler
+    command: ["airflow", "scheduler"]
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
@@ -138,7 +139,7 @@ services:
         condition: service_completed_successfully
     env_file: [./.env]         # inject from anchor 
     environment: *airflow-env
-    command: triggerer
+    command: ["airflow", "triggerer"]
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
