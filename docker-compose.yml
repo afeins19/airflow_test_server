@@ -98,7 +98,7 @@ services:
   # airflow webserver
   # -------------------
   airflow-webserver:
-    image: apache/airflow:2.9.3
+    image: apache/airflow:2.10.0
     container_name: af_web
     depends_on:
       airflow-init:
@@ -116,7 +116,7 @@ services:
   # airflow scheduler (parses dags & schedules tasks)
   # -----------------------------------------------------
   airflow-scheduler:
-    image: apache/airflow:2.9.3
+    image: apache/airflow:2.10.0
     container_name: af_sched
     depends_on:
       airflow-init:
@@ -132,7 +132,7 @@ services:
   # airflow triggerer (for deferrable operators/sensors)
   # -----------------------------------------------------
   airflow-triggerer:
-    image: apache/airflow:2.9.3
+    image: apache/airflow:2.10.0
     container_name: af_trigger
     depends_on:
       airflow-init:
@@ -148,7 +148,7 @@ services:
   # airflow celery worker (executes tasks)
   # ------------------------------------------------
   airflow-worker:
-    image: apache/airflow:2.9.3
+    image: apache/airflow:2.10.0
     container_name: af_worker
     depends_on:
       airflow-init:
