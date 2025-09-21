@@ -40,7 +40,7 @@ services:
     image: postgres:16
     container_name: af_postgres
     environment:
-      POSTGRES_USER: airflow/
+      POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
       POSTGRES_DB: airflow
     volumes:
