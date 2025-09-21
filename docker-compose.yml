@@ -219,8 +219,8 @@ services:
     image: postgres:16
     container_name: af_pg_imdb
     environment:
-      postgres_user: demo
-      postgres_password: demo
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: demo
       postgres_db: demo
     ports:
       - "5433:5432"     # avoid clashing with metadata postgres
