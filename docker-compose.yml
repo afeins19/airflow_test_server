@@ -15,7 +15,20 @@ x-airflow-env: &airflow-env
   AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres:5432/airflow
   AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "True"
   AIRFLOW__LOGGING__LOGGING_LEVEL: INFO
+  
+  # web-wui code editor + file manager
+  AIRFLOW__CODE_EDITOR__ENABLED: "True"
+  AIRFLOW__CODE_EDITOR__ROOT_DIRECTORY: /opt/airflow/dags
+  AIRFLOW__CODE_EDITOR__GIT_ENABLED: "False" # CHANGE TO TRUE ONCE GIT REPO SETUP FOR DAGS
+  AIRFLOW__CODE_EDITOR__MOUNT: "name=logs,path=/opt/airflow/logs"
+  AIRFLOW__CODE_EDITOR__MOUNT1: "name=plugins,path=/opt/airflow/plugins"
+  AIRFLOW__CODE_EDITOR__MOUNT2: "name=drop,path=s3://drop"
 
+  AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minio}
+  AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minio123
+  AWS_DEFAULT_REGION: us-east-1
+  AWS_S3_ADDRESSING_STYLE: path
+  AWS_ENDPOINT_URL_S3: http://minio:9000
 
   # system logging with statsd
   AIRFLOW__METRICS__STATSD: "true"
