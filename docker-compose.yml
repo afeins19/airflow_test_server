@@ -1,5 +1,3 @@
-
-# docker-compose.yml — airflow sandbox with celery, postgres metadata, redis,
 # minio "file drop", sql server, and an extra postgres (to simulate another source/target).
 version: "3.9"
 
@@ -44,13 +42,13 @@ services:
     image: postgres:16
     container_name: af_postgres
     environment:
-      postgres_user: airflow/
-      postgres_password: airflow
-      postgres_db: airflow
+      POSTGRES_USER: airflow/
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
     volumes:
       - pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -u airflow"]
+      test: ["CMD-SHELL", "pg_isready -U airflow"]
       interval: 10s
       timeout: 5s
       retries: 5
