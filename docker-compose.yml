@@ -1,5 +1,7 @@
 version: "3.9"
 
+
+
 # -------------------------------------------------------------
 # airflow environment (yaml anchor to reuse across services)
 # -------------------------------------------------------------
@@ -37,24 +39,16 @@ x-airflow-env: &airflow-env
   AIRFLOW__METRICS__STATSD_PORT: "9125"
   AIRFLOW__METRICS__STATSD_PREFIX: airflow
 
-  # dev convenience: install providers at container start (for a stable setup, bake a custom image)
-  # airflow-code-editor -> edit dags in web ui directly
-  _PIP_ADDITIONAL_REQUIREMENTS: >
-    apache-airflow-providers-amazon
-    apache-airflow-providers-microsoft-mssql
-    apache-airflow-providers-snowflake
-    airflow-code-editor==8.1.0
-    fs-s3fs
-    black
-    isort
-    pandas
-    numpy
-    openpyxl
-    pendulum
-    django
-    SQLALchemy
-    requests
-    odo
+# ------------------------------------------------------------
+# local image that imports python requirements to containers
+# ------------------------------------------------------------
+
+x-airflow-image: &airflow-image
+  build:
+    context: .
+    dockerfile: Dockerfile.airflow
+  image: airflow-pip-requirement-getter:2.10.2-custom
+
 
 services:
   # -----------------------
@@ -86,6 +80,7 @@ services:
   # one-time airflow db init + admin user creation
   # -----------------------------------------------
   airflow-init:
+    <<: *airflow-image
     image: apache/airflow:2.10.0    # latest version
     container_name: af_init
     depends_on:
@@ -122,6 +117,7 @@ services:
   # airflow webserver
   # -------------------
   airflow-webserver:
+    <<: *airflow-image
     image: apache/airflow:2.10.0
     container_name: af_web
     depends_on:
@@ -141,6 +137,7 @@ services:
   # airflow scheduler (parses dags & schedules tasks)
   # -----------------------------------------------------
   airflow-scheduler:
+    <<: *airflow-image
     image: apache/airflow:2.10.0
     container_name: af_sched
     depends_on:
@@ -158,6 +155,7 @@ services:
   # airflow triggerer (for deferrable operators/sensors)
   # -----------------------------------------------------
   airflow-triggerer:
+    <<: *airflow-image
     image: apache/airflow:2.10.0
     container_name: af_trigger
     depends_on:
@@ -175,6 +173,7 @@ services:
   # airflow celery worker (executes tasks)
   # ------------------------------------------------
   airflow-worker:
+    <<: *airflow-image
     image: apache/airflow:2.10.0
     container_name: af_worker
     depends_on:
