@@ -22,7 +22,7 @@ great-expectations
 
 # db/file system
 SQLALchemy
-mssql-pyodbc
+pyodbc
 postgresql
 minio
 fs-3fs
@@ -39,6 +39,4 @@ django
 requests
 taipy
 streamlit
-
-
 
