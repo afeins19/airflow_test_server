@@ -39,7 +39,7 @@ x-airflow-env: &airflow-env
 
   # dev convenience: install providers at container start (for a stable setup, bake a custom image)
   # airflow-code-editor -> edit dags in web ui directly
-  _pip_additional_requirements: >
+  _PIP_ADDITIONAL_REQUIREMENTS: >
     apache-airflow-providers-amazon
     apache-airflow-providers-microsoft-mssql
     apache-airflow-providers-snowflake
@@ -47,6 +47,14 @@ x-airflow-env: &airflow-env
     fs-s3fs
     black
     isort
+    pandas
+    numpy
+    openpyxl
+    pendulum
+    django
+    SQLALchemy
+    requests
+    odo
 
 services:
   # -----------------------
