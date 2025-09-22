@@ -31,6 +31,5 @@ xgboost
 # web/apps
 django
 requests
-taipy
 streamlit
 
