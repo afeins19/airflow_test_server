@@ -1,0 +1,44 @@
+# airflow providers/connectors
+apache-airflow-providers-postgres
+apache-airflow-providers-microsoft-mssql
+apache-airflow-providers-amazon
+
+# airflow plugins
+airflow-code-editor==8.1.0
+
+# coding/linting
+black
+isort
+
+# etl/data
+pandas
+polars
+boto3
+numpy
+openpyxl
+pendulum
+faker
+great-expectations
+
+# db/file system
+SQLALchemy
+mssql-pyodbc
+postgresql
+minio
+fs-3fs
+
+# ml
+scikit-learn
+matplotlib
+seaborn
+bokeh
+xgboost
+
+# web/apps
+django
+requests
+taipy
+streamlit
+
+
+
