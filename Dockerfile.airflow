@@ -1,13 +1,8 @@
 # Dockerfile.airflow
 FROM apache/airflow:2.10.2
 
-# Install Python deps with the matching Airflow constraints
 COPY requirements.txt /requirements.txt
 
-# Pick constraints that match the Python version inside the base image
-RUN pyv="$(python - <<'PY'	# DONT BREAK AIRFLOW!
-import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")
-PY
-)" \
- && pip install --no-cache-dir -r /requirements.txt \
-    --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.10.2/constraints-${pyv}.txt"
+# Airflow 2.10.2 default image uses Python 3.12 → use matching constraints
+RUN pip install --no-cache-dir -r /requirements.txt \
+    --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.10.2/constraints-3.12.txt"
