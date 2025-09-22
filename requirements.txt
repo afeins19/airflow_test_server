@@ -24,7 +24,7 @@ great-expectations
 SQLALchemy
 pyodbc
 minio
-fs-3fs
+fs-s3fs
 
 # ml
 scikit-learn
