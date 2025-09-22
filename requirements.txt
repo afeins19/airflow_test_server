@@ -23,7 +23,6 @@ great-expectations
 # db/file system
 SQLALchemy
 pyodbc
-postgresql
 minio
 fs-3fs
 
