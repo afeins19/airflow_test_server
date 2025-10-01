@@ -8,6 +8,9 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "sqlalchemy (>=2.0.43,<3.0.0)",
+    "pyodbc (>=5.2.0,<6.0.0)",
+    "dbt (>=1.0.0.40.6,<2.0.0.0.0)"
 ]
 
 
