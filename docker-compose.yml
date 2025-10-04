@@ -228,7 +228,7 @@ services:
     container_name: af_mssql
     environment:
       ACCEPT_EULA: "y"
-      sa_password: "${MSSQL_SA_PASSWORD:-bababababad!}"  # set in .env
+      sa_password: "${MSSQL_SA_PASSWORD:Starfun64.}"  # set in .env
       mssql_pid: "developer"
     ports:
       - "1433:1433"
