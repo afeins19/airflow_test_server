@@ -228,12 +228,13 @@ services:
     container_name: af_mssql
     environment:
       ACCEPT_EULA: "y"
-      sa_password: "${MSSQL_SA_PASSWORD:Starfun64.}"  # set in .env
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:-Starfun64.}"  # set in .env
       mssql_pid: "developer"
     ports:
       - "1433:1433"
     volumes:
       - mssql_data:/var/opt/mssql
+    restart: unless-stopped
 
   # ------------------
   # extra postgres db
