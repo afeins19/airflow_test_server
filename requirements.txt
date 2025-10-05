@@ -1,5 +1,6 @@
 # airflow plugins
 airflow-code-editor==8.1.0
+apache-ariflow-providers-microsoft-mssql==5.7.0
 
 # coding/linting
 black
