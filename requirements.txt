@@ -15,6 +15,12 @@ pendulum
 faker
 great-expectations
 
+
+# dbt 
+dbt-core
+dbt-sqlserver
+dbt-postgres
+
 # db/file system
 SQLALchemy
 pyodbc
