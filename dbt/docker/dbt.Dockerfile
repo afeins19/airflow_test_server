@@ -9,6 +9,6 @@ RUN curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -&& \
     apt-get update && ACCEPT_EULA=y apt-get install -y mssql18 mssql-tools18
 
 # python dbt core and sql server adapter !!==<CURRENT MOST RECENT FULLY SUPPORTED VERSION>!!
-RUN pip install --no-cache-dir "dbt-core==1.9.*" "dbt-sqlserver==1.9.*"
+RUN pip install --no-cache-dir "dbt-core==1.9.*" "dbt-sqlserver==1.9.*" "dbt-postgres==1.9.*"
 WORKDIR /usr/app
 ENV DBT_PROFILES_DIR=/profiles

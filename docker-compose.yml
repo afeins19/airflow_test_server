@@ -51,17 +51,17 @@ services:
   # ------------------------------
   # dbt core (dbt runner)
   # ------------------------------
-  dbt-runner:
-    build:
-      context: .
-      dockerfile: ./dbt/dpcler/dbt.Dockerfile     # build instructions for this image (will be built on runner)
-    image: dbt-runner:1.8-sqlserver               # name of resulting image that was built from dockerfile instructions
-    volumes:
-      - ./dbt:/usr/app:ro
-      - ./dbt/profiles:/profiles:ro
-    networks:
-      - default
-    command: ["sleep", "infinity"]                # sleep until triggered externally (airflow, user, etc.)         
+  #dbt-runner:
+  #  build:
+  #    context: .
+  #    dockerfile: ./dbt/dpcler/dbt.Dockerfile     # build instructions for this image (will be built on runner)
+  #  image: dbt-runner:1.8-sqlserver               # name of resulting image that was built from dockerfile instructions
+  #  volumes:
+  #    - ./dbt:/usr/app:ro
+  #    - ./dbt/profiles:/profiles:ro
+  #  networks:
+  #    - default
+  #  command: ["sleep", "infinity"]                # sleep until triggered externally (airflow, user, etc.)         
 
   # -------------------------------
   # airflow metadata db (postgres)
