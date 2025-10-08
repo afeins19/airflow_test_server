@@ -29,14 +29,14 @@ minio
 fs-s3fs
 
 # ml
-scikit-learn
-matplotlib
-seaborn
-bokeh
-xgboost
+#scikit-learn
+#matplotlib
+#seaborn
+#bokeh
+#xgboost
 
 # web/apps
-django
-requests
-streamlit
+# django
+# requests
+# streamlit
 
