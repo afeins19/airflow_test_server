@@ -2,3 +2,8 @@
 .env
 .env*
 *.env
+
+# venv dirctory
+venv/
+.venv/
+env/
